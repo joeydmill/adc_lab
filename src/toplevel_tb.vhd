@@ -51,6 +51,7 @@ signal psclk, psen, reset, PSDONE : std_logic;
 constant TbPeriod : time := 8 ns;
 signal TbClock : std_logic := '0';
 signal Unshifted_clk , ADCCLK : std_logic;
+signal ideal_phase_shift : std_logic := '0';
 
 begin
 TbClock <= not TbClock after 2.5ns; -- create a 200MHz clock for kicks, this clock is arbitrary and is just for the PSCLK
@@ -58,10 +59,32 @@ psclk <= TbClock; -- this will be the board clock 125MHz
 
 stimuli : process
 begin
+    
+    ideal_phase_shift <= '0';
     PSEN <= '0';
-    wait for 10 us;
+    -- wait for 10 us;
     -- TODO : in here, write some code to create PSEN signals which will rotate the the ADC_CLK a full 360 degrees from 
     -- its starting location.  Then stop rotating.
+
+    -- start telling the MMCM to shift the phase of the clock
+    wait until rising_edge(PSCLK); 
+    PSEN <= '1';
+    
+    -- hold PSEN high for 448 phase shifts to shift 360 degrees. 448*17.857143ps = 8ns  
+    -- ideal shift after 112 phase shifts (90 degrees). 112*17.857143ps = 2ns    
+    for i in 1 to 448 loop
+        wait until rising_edge(PSDONE);
+        if i = 112 then
+            ideal_phase_shift <= '1';
+        else
+            ideal_phase_shift <= '0';
+        end if; 
+    end loop;
+    
+    -- stop telling the MMCM to shift the phase of the clock
+    PSEN <= '0';
+    
+    
     wait; 
  end process;
 
